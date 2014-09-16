@@ -1,0 +1,88 @@
+# 'check_as400_load' command definition
+define command{
+	command_name	check_as400_load
+	command_line	$USER1$/check_as400 -H $HOSTADDRESS$ -v CPU -w $ARG1$ -c $ARG2$
+	}
+
+define command{
+        command_name    check_as400_load_cpc
+        command_line    /usr/local/nagios/etc/objects/check_as400/check_as400 -H $HOSTADDRESS$ -v CPUC $ARG1$ -w $ARG2$ -c $ARG3$
+        }
+
+# 'check_as400_db' command definition
+define command{
+        command_name    check_as400_db
+        command_line   	$USER1$/check_as400 -H $HOSTADDRESS$ -v DB -w $ARG1$ -c $ARG2$ 
+        }
+
+# 'check_as400_disk' command definition
+define command{
+        command_name    check_as400_disk
+        command_line   	$USER1$/check_as400 -H $HOSTADDRESS$ -v US -w $ARG1$ -c $ARG2$ 
+        }
+
+# 'check_as400_jobs' command definition
+define command{
+        command_name    check_as400_jobs
+        command_line   	$USER1$/check_as400 -H $HOSTADDRESS$ -v JOBS -w $ARG1$ -c $ARG2$ 
+        }
+
+# 'check_as400_active_jobs' command definition
+define command{
+        command_name    check_as400_active_jobs
+        command_line    $USER1$/check_as400 -H $HOSTADDRESS$ -v AJ -w $ARG1$ -c $ARG2$
+        }
+
+# 'check_as400_sbs' command definition
+define command{
+        command_name    check_as400_sbs
+        command_line    $USER1$/check_as400 -H $HOSTADDRESS$ -v SBS $ARG1$
+        }
+
+# 'check_as400_job' command definition
+define command{
+        command_name    check_as400_job
+        command_line    $USER1$/check_as400 -H $HOSTADDRESS$ -v CJ $ARG1$
+        }
+
+# 'check_as400_msg' command definition
+define command{
+        command_name    check_as400_msg
+        command_line   	$USER1$/check_as400 -H $HOSTADDRESS$ -v MSG $ARG1$ 
+        }
+
+# 'check_as400_outq' command definition
+define command{
+        command_name    check_as400_outq
+        command_line    $USER1$/check_as400 -H $ARG1$ -v OUTQ $ARG2$ -w $ARG3$ -c $ARG4$
+        }
+
+# 'check_as400_login' command definition
+define command{
+        command_name    check_as400_login
+        command_line    $USER1$/check_as400 -H $HOSTADDRESS$ -v LOGIN 
+        }
+
+# 'check_as400_DISK Status' command definition
+define command{
+        command_name    check_as400_disksts
+        command_line    /usr/local/nagios/etc/objects/check_as400/check_as400 -H $HOSTADDRESS$ -v DISK
+        }
+
+# 'check_as400_qcmn' command definition
+define command{
+        command_name    check_as400_qcmn
+        command_line    /usr/local/nagios/etc/objects/check_as400/check_as400 -H $HOSTADDRESS$ -v QCMN -w $ARG1$ -c $ARG2$
+        }
+
+# 'check_as400_asp' command definition
+define command{
+        command_name    check_as400_asp
+        command_line    /usr/local/nagios/etc/objects/check_as400/check_as400 -H $HOSTADDRESS$ -v ASP $ARG1$ -w $ARG2$ -c $ARG3$
+        }
+        
+# 'check_as400_mimix' command definition
+define command{
+        command_name    check_as400_mimix
+        command_line    /usr/local/nagios/etc/objects/check_as400/check_as400 -H $HOSTADDRESS$ -v MIMIX $ARG1$ -w $ARG2$ -c $ARG3$
+        }

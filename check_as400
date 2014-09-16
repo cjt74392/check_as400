@@ -1,0 +1,3 @@
+USER=`cat /usr/local/nagios/etc/objects/check_as400/.as400 |grep -e USER | cut -d = -f 2`
+PASS=`cat /usr/local/nagios/etc/objects/check_as400/.as400 |grep -e PASS | cut -d = -f 2`
+/usr/java14/jre/bin/java -cp /usr/local/nagios/etc/objects/check_as400 check_as400 -u $USER -p $PASS $*

@@ -1,0 +1,19 @@
+define servicedependency{
+        host_name                      	as400host 
+        service_description             Active Jobs
+        dependent_host_name            	as400host 
+        dependent_service_description   Login
+        execution_failure_criteria      c,u
+        notification_failure_criteria   c,u
+        }
+
+#outq dependency
+define servicedependency{
+        host_name                       prtis1
+        service_description             AS400 OUTQ
+        dependent_host_name            	as400host 
+        dependent_service_description   Login
+        execution_failure_criteria      c,u
+        notification_failure_criteria   c,u
+        }
+

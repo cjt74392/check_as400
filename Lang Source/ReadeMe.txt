@@ -1,0 +1,11 @@
+Multi-Lang Features may be incomplete
+
+1.Most easy way is change system LIB list to ENGLISH
+(1).Logon AS/400 Nagios check ID.
+(2).CHGSYSLIBL LIB(QSYS2984) OPTION(*ADD)
+
+or
+
+2.Manual compile your LANG
+(1).copy and rename.   	to ../check_as400_lang.java
+(2).Re compile.		javac check_as400_lang.java

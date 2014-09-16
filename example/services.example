@@ -1,0 +1,121 @@
+# Service definition
+define service{
+        use                             generic-service         ; Name of service template to use
+
+        host_name                      	as400host 
+        service_description            	CPU Load
+        contact_groups                  is-all
+
+        check_command                   check_as400_load!80!90
+        }
+
+# Service definition
+define service{
+        use                             generic-service         ; Name of service template to use
+
+        host_name                      	as400host 
+        service_description             DB Load
+        contact_groups                  is-all
+
+        check_command                   check_as400_db!80!90
+        }
+
+# Service definition
+define service{
+        use                             generic-service         ; Name of service template to use
+
+        host_name                      	as400host 
+        service_description           	Storage 
+        contact_groups                  is-all
+
+        check_command                   check_as400_disk!20!10
+        }
+
+# Service definition
+define service{
+        use                             generic-service         ; Name of service template to use
+
+        host_name                      	as400host 
+        service_description            	QSYSOPR Messages	
+        contact_groups                  is-all
+
+        check_command                   check_as400_msg!qsysopr
+        }
+
+# Service definition
+define service{
+        use                             generic-service         ; Name of service template to use
+
+        host_name                      	as400host 
+        service_description            	Jobs 
+        contact_groups                  is-all
+
+        check_command                   check_as400_jobs!21000!23000
+        }
+
+# Service definition
+define service{
+        use                             generic-service         ; Name of service template to use
+
+        host_name                      	as400host 
+        service_description            	Fax 
+        contact_groups                  is-all
+
+        check_command                   check_as400_outq!s00175!qffsndfax nw!10!20
+        }
+
+define service{
+        use                             generic-service
+
+        host_name                       as400host
+        service_description             QFAXSBS
+        contact_groups                  is-all
+
+        check_command                   check_as400_sbs!qfax/qfaxsbs
+        }
+
+# Service definition
+define service{
+        use                             generic-service
+
+        host_name                       as400host 
+        service_description             Active Jobs
+        contact_groups                  is-all
+
+        check_command                   check_as400_active_jobs!500!900
+        }
+
+# Service definition
+define service{
+        use                             generic-service
+
+        host_name                       as400host 
+        service_description             Interface R1200
+        contact_groups                  is-all
+
+        check_command                   check_as400_job!RECV_1200
+        }
+
+# Service definition
+define service{
+        use                             generic-service
+
+        host_name                       as400host
+        service_description            	Login 
+        contact_groups                  is-all
+
+        check_command                   check_as400_login
+        }
+
+########### PRINTERS ###########
+	
+# Service definition
+define service{
+        use                             generic-printer         ; Name of service template to use
+
+        host_name                       prtis1
+        service_description            	AS400 OUTQ 
+        contact_groups                  is-all
+
+        check_command                   check_as400_outq!s00175!prtis1!10!20
+        }
