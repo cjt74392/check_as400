@@ -68,8 +68,11 @@ CHANGE LOG:
 
 1.2.8
 * Added check for Number of file members.
+
+1.2.9
+* Fixed check MSG for LANG FR/GE string index out of range error.
 --------------------------------------------------------------
-Last Modified  2013/08/28 by Shao-Pin, Cheng  , Taipei, Taiwan
+Last Modified  2014/02/11 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
 --------------------------------------------------------------*/
 
@@ -79,7 +82,7 @@ import java.net.*;
 import java.text.*;
 
 public class check_as400{
-	final static String VERSION="1.2.8";
+	final static String VERSION="1.2.9";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -97,7 +100,7 @@ public class check_as400{
 		System.out.println("-v STRING\n   Variable to check.  Valid variables include:");
 		System.out.println("      AJ                = Number of active jobs in system.");
 		System.out.println("      CJ <job>          = Check to see if job <job> is in the system.");
-		System.out.println("      CJS <sbs> <job> [status <status>] [noperm]");
+		System.out.println("      CJS <sbs> <job> [status <STATUS>] [noperm]");
 		System.out.println("                        = Check to see if job is existing in Subsystem and has this status.");
 		System.out.println("                          Job checking can be controlled by :");
 		System.out.println("                          status <status>	= any other status goes to critical");
@@ -662,6 +665,13 @@ public class check_as400{
          int i = paramString.indexOf(LANG.MSG_NEED_REPLY, 0);
          int j = paramString.indexOf(" (", 0);
          i += 75;
+         // case message line begins with (C G D F)
+				 if (j<i){
+    		     i = paramString.indexOf(") ", i);
+    				 i += 2;
+    				 j = paramString.indexOf(".", i); 
+				 }
+
          //j -= 1;
          String str1 = paramString.substring(i, j);
          //Count MSG num 
@@ -669,7 +679,7 @@ public class check_as400{
          boolean botflag=true;
          int count = 0;
          while(botflag || p >20){
-           int k = paramString.indexOf("F1=Help", 0);
+           int k = paramString.indexOf("F1=", 0);
            k -= 1;    
            if(paramString.indexOf(LANG.MSG_NOT_NEED_REPLY)!=-1){
            	 botflag=false;
