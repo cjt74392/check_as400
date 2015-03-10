@@ -71,8 +71,12 @@ CHANGE LOG:
 
 1.2.9
 * Fixed check MSG for LANG FR/GE string index out of range error.
+
+1.3.0
+* Modified check CJ for duplicate jobs, can specify job number for CRITICAL and WARNING value.
+
 --------------------------------------------------------------
-Last Modified  2014/02/11 by Shao-Pin, Cheng  , Taipei, Taiwan
+Last Modified  2014/03/10 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
 --------------------------------------------------------------*/
 
@@ -80,9 +84,11 @@ Mail & PayPal donate: cjt74392@ms10.hinet.net
 import java.io.*;
 import java.net.*;
 import java.text.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 public class check_as400{
-	final static String VERSION="1.2.9";
+	final static String VERSION="1.3.0";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -99,7 +105,7 @@ public class check_as400{
 		System.out.println("-p PASSWORD\n   Password to login to host");
 		System.out.println("-v STRING\n   Variable to check.  Valid variables include:");
 		System.out.println("      AJ                = Number of active jobs in system.");
-		System.out.println("      CJ <job>          = Check to see if job <job> is in the system.");
+		System.out.println("      CJ <job> [-w -c]  = Check to see if job <job> is in the system.[Number of ACTIVE <job>]");
 		System.out.println("      CJS <sbs> <job> [status <STATUS>] [noperm]");
 		System.out.println("                        = Check to see if job is existing in Subsystem and has this status.");
 		System.out.println("                          Job checking can be controlled by :");
@@ -230,12 +236,12 @@ public class check_as400{
 						ARGS.checkVariable=DB;
 						flag=flag | CMD_FLAG | ARG_FLAG;
 					}
-			    else if(args[i].equals("FDN")){
-       			ARGS.command=DSPFD;
-       			ARGS.checkVariable=FDN;
-       			ARGS.fdFile=args[++i];
-       			flag=flag | CMD_FLAG | ARG_FLAG;
-     			}
+			    		else if(args[i].equals("FDN")){
+       						ARGS.command=DSPFD;
+       						ARGS.checkVariable=FDN;
+       						ARGS.fdFile=args[++i];
+       						flag=flag | CMD_FLAG | ARG_FLAG;
+     					}
 					else if(args[i].equals("US")){
 						ARGS.command=WRKSYSSTS;
 						ARGS.checkVariable=US;
@@ -291,43 +297,55 @@ public class check_as400{
 						flag=flag | CMD_FLAG | ARG_FLAG;
 					}
 					else if(args[i].equals("SBS")){
-            ARGS.command=DSPSBSD;
-            ARGS.checkVariable=SBS;
-            ARGS.subSystem=args[++i];
-            flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
-          }
-          else if(args[i].equals("CJ")){
-            ARGS.command=DSPJOB;
-            ARGS.checkVariable=DJOB;
-            ARGS.job=args[++i];
-            flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
-          }
-          else if(args[i].equals("LOGIN")){
-            ARGS.command=CMDLOGIN;
-            flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
-          }
+						ARGS.command=DSPSBSD;
+						ARGS.checkVariable=SBS;
+						ARGS.subSystem=args[++i];
+						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
+					}
+					else if(args[i].equals("CJ")){
+						ARGS.command=DSPJOB;
+						ARGS.checkVariable=DJOB;
+						ARGS.job=args[++i];
+						flag=flag | CMD_FLAG | ARG_FLAG;
+						++i;
+							while(true){
+								//In this case all further addition parameters are optional
+								if (i==args.length){
+									flag=flag | WARN_FLAG | CRIT_FLAG; // Parameter completely set
+									break;
+								}
+								else{
+									i--;
+									break;
+								}
+							}
+					}
+					else if(args[i].equals("LOGIN")){
+						ARGS.command=CMDLOGIN;
+						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
+					}
 					else if(args[i].equals("MSG")){
 						ARGS.command=DSPMSG;
 						ARGS.checkVariable=MSG;
 						ARGS.msgUser=args[++i];
 						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
 					}
-          else if(args[i].equals("ICNODE")){
-              ARGS.command=DMWRKNODE;
-              ARGS.checkVariable=ICNODE;
-              flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
-          }
-          else if(args[i].equals("ICGROUP")){
-              ARGS.command=DMWRKGRP;
-              ARGS.checkVariable=ICGROUP;
-              flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
-          }                    
-          else if(args[i].equals("ICSWTCHRDY")){
-              ARGS.command=DMSWTCHRDY;
-              ARGS.checkVariable=ICSWRDY;
-              ARGS.icGroup=args[++i];
-              flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
-          }
+					else if(args[i].equals("ICNODE")){
+						ARGS.command=DMWRKNODE;
+						ARGS.checkVariable=ICNODE;
+						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
+					}
+					else if(args[i].equals("ICGROUP")){
+						ARGS.command=DMWRKGRP;
+						ARGS.checkVariable=ICGROUP;
+						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
+					}                    
+					else if(args[i].equals("ICSWTCHRDY")){
+						ARGS.command=DMSWTCHRDY;
+						ARGS.checkVariable=ICSWRDY;
+						ARGS.icGroup=args[++i];
+						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
+					}
 					else if(args[i].equals("OUTQ")){
 						ARGS.command=WRKOUTQ;
 						ARGS.checkVariable=OUTQ;
@@ -398,7 +416,8 @@ public class check_as400{
 				}
 				i++;
 			}
-			if(ARGS.checkVariable==US){
+			
+			if(ARGS.checkVariable==US || ARGS.checkVariable==DJOB){
 				if(ARGS.tHoldWarn<ARGS.tHoldCritical){
 					System.out.println("Warning threshold should be greater than the Critical threshold.");
 					System.exit(WARN);
@@ -475,6 +494,8 @@ public class check_as400{
 				/*Wait and recieve output screen*/
 				return waitReceive("===>",GETSBSD);
 			case DSPJOB:
+				send("CHGVTMAP DOWN(*CTLD *CTLF *NXTSCR *ESCZ)\r");
+				waitReceive("F3=",NONE);
 				send("dspjob "+ARGS.job+"\r");
 				/*Wait and recieve output screen*/
 				waitReceive(LANG.SELECTION,GETJOB);
@@ -633,7 +654,7 @@ public class check_as400{
 				returnStatus=CRITICAL;
 			}
 		}
-		else if(ARGS.checkVariable==US){
+		else if(ARGS.checkVariable==US || ARGS.checkVariable==DJOB){
 			if(val>ARGS.tHoldWarn){
 				System.out.print("OK - ");
 				returnStatus=OK;
@@ -1097,7 +1118,7 @@ public class check_as400{
           
 		if(ARGS.checkVariable==DISK){
 		  while(botflag || i >20){
-			 if(buffer.indexOf("FAILED")!=-1){
+		   if(buffer.indexOf("FAILED")!=-1){
 				 failcnt="Yes";
 		   }
 		   if(buffer.indexOf("BUSY")!=-1){
@@ -1108,7 +1129,7 @@ public class check_as400{
 		   }
 		   if(buffer.matches(".*HDW FAIL.*")){
 				 hdwcnt="Yes";
-		    }
+		   }
 		   if(buffer.indexOf("PWR LOSS")!=-1){
 				 pwlose="Yes";
 		   }
@@ -1486,10 +1507,25 @@ public class check_as400{
         }
 				else if(procedure==GETJOB){
 					if(buffer.indexOf(LANG.DUPLICATE)!=-1){
-						System.out.println("WARNING - duplicate jobs("+ARGS.job+")");
+						int countString=findStr(buffer,LANG.ACTIVE);					
+						int i=0;    
+      			boolean botflag=true;
+				    while(botflag || i >20){     
+            	if(buffer.indexOf(LANG.LIST_END)!=-1){
+               	botflag=false;
+            	}
+            	else{
+               	send((char)27+"z");
+               	buffer=waitReceive("F3=",NONE);
+               	i++;
+               	countString=findStr(buffer,LANG.ACTIVE)+countString;
+            	}
+            }				
 						send((char)27+"3");
 						waitReceive("===>",NONE);
-						logout(CRITICAL);
+						int returnStatus=getStatus(countString);
+						System.out.println("Active jobs("+ARGS.job+" cnt >= "+countString+")");
+						logout(returnStatus);
 					}
 					if(buffer.indexOf(LANG.JOB)!=-1){
 						System.out.println("CRITICAL - job("+ARGS.job+") NOT IN SYSTEM");
@@ -1596,6 +1632,16 @@ public class check_as400{
 			System.exit(CRITICAL);
 		}	
 	}	
+
+	public static int findStr(String srcText, String keyword) {
+		int countString = 0;
+		Pattern p = Pattern.compile(keyword);
+		Matcher m = p.matcher(srcText);
+		while (m.find()) {
+			countString++;
+		}
+		return countString;
+	}
 
 	private static Socket ioSocket;
 	private static PrintWriter ioWriter;
