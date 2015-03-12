@@ -72,7 +72,7 @@ CHANGE LOG:
 1.2.9
 * Fixed check MSG for LANG FR/GE string index out of range error.
 
-1.3.0
+1.3.1
 * Modified check CJ for duplicate jobs, can specify job number for CRITICAL and WARNING value.
 
 --------------------------------------------------------------
@@ -88,7 +88,7 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public class check_as400{
-	final static String VERSION="1.3.0";
+	final static String VERSION="1.3.1";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -699,7 +699,7 @@ public class check_as400{
          int p=0;
          boolean botflag=true;
          int count = 0;
-         while(botflag || p >20){
+         while(botflag){
            int k = paramString.indexOf("F1=", 0);
            k -= 1;    
            if(paramString.indexOf(LANG.MSG_NOT_NEED_REPLY)!=-1){
@@ -1113,11 +1113,11 @@ public class check_as400{
 	public static int parseWrkDskSts(String buffer){
 		int returnStatus=UNKNOWN;
 		String failcnt="No",busycnt="No",degcnt="No",hdwcnt="No",pwlose="No";
-		int i=0;
-         boolean botflag=true;
+		int countString=findStr(buffer,LANG.ACTIVE);
+    boolean botflag=true;
           
 		if(ARGS.checkVariable==DISK){
-		  while(botflag || i >20){
+		  while(botflag){
 		   if(buffer.indexOf("FAILED")!=-1){
 				 failcnt="Yes";
 		   }
@@ -1139,7 +1139,7 @@ public class check_as400{
 		   else{
 		   		 send((char)27+"z");
 		  		 buffer=waitReceive("F3=",NONE);
-		  		 i++;
+		  		 countString=findStr(buffer,LANG.ACTIVE)+countString;
 		   }
 		  }
 		  
@@ -1147,15 +1147,11 @@ public class check_as400{
 			  	 System.out.print("CRITICAL - ");
 				 returnStatus=CRITICAL;
 		   }
-		   else if(i>20){
-			  	 System.out.print("UNKNOWN - More then 20 page. Stop check.  ");
-				 returnStatus=UNKNOWN;
-		   }
 		   else{
 		  	     System.out.print("OK - ");
 				 returnStatus=OK;
 		   }
-			System.out.println("FAILED:"+failcnt+", BUSY:"+busycnt+", DEGRADED:"+degcnt+", HDW FAIL:"+hdwcnt+", PWR-LOSS:"+pwlose);
+			System.out.println("ACTIVE:"+countString+", FAILED:"+failcnt+", BUSY:"+busycnt+", DEGRADED:"+degcnt+", HDW FAIL:"+hdwcnt+", PWR-LOSS:"+pwlose);
 		}
 		
 		return returnStatus;
@@ -1265,7 +1261,7 @@ public class check_as400{
       boolean botflag=true;
         
       if(ARGS.checkVariable==ICNODE){
-         while(botflag || i >20){
+         while(botflag){
             if(buffer.indexOf("FAILED")!=-1){
                failcnt="Yes";
             }
@@ -1308,7 +1304,7 @@ public class check_as400{
       int i=0;    
       boolean botflag=true;
       if(ARGS.checkVariable==ICGROUP){
-         while(botflag || i >20){
+         while(botflag){
             if(buffer.indexOf("*INDOUBT")!=-1){
                indbtcnt="Yes";
             }
@@ -1505,33 +1501,31 @@ public class check_as400{
             logout(CRITICAL);
           }
         }
-				else if(procedure==GETJOB){
-					if(buffer.indexOf(LANG.DUPLICATE)!=-1){
-						int countString=findStr(buffer,LANG.ACTIVE);					
-						int i=0;    
-      			boolean botflag=true;
-				    while(botflag || i >20){     
+        else if(procedure==GETJOB){
+          if(buffer.indexOf(LANG.DUPLICATE)!=-1){
+            int countString=findStr(buffer,LANG.ACTIVE);					
+            boolean botflag=true;
+            while(botflag){     
             	if(buffer.indexOf(LANG.LIST_END)!=-1){
                	botflag=false;
             	}
             	else{
                	send((char)27+"z");
                	buffer=waitReceive("F3=",NONE);
-               	i++;
                	countString=findStr(buffer,LANG.ACTIVE)+countString;
             	}
             }				
-						send((char)27+"3");
-						waitReceive("===>",NONE);
-						int returnStatus=getStatus(countString);
-						System.out.println("Active jobs("+ARGS.job+" cnt >= "+countString+")");
-						logout(returnStatus);
-					}
-					if(buffer.indexOf(LANG.JOB)!=-1){
+            send((char)27+"3");
+            waitReceive("===>",NONE);
+            int returnStatus=getStatus(countString);
+            System.out.println("Active jobs("+ARGS.job+" cnt >= "+countString+")");
+            logout(returnStatus);
+          }
+          if(buffer.indexOf(LANG.JOB)!=-1){
 						System.out.println("CRITICAL - job("+ARGS.job+") NOT IN SYSTEM");
 						logout(CRITICAL);
-					}					
-				}
+          }					
+        }
 				//check for command not allowed errors
 				if(procedure!=LOGIN){
 					if(buffer.indexOf(LANG.LIBRARY_NOT_ALLOWED)!=-1){
