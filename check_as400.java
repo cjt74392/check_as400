@@ -75,8 +75,10 @@ CHANGE LOG:
 1.3.1
 * Modified check CJ for duplicate jobs, can specify job number for CRITICAL and WARNING value.
 
+1.3.2
+* Modified Rocket iCluster checks to recognize Nagios user Not Authorized to iCluster
 --------------------------------------------------------------
-Last Modified  2014/03/10 by Shao-Pin, Cheng  , Taipei, Taiwan
+Last Modified  2015/06/29 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
 --------------------------------------------------------------*/
 
@@ -88,7 +90,7 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public class check_as400{
-	final static String VERSION="1.3.1";
+	final static String VERSION="1.3.2";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -147,7 +149,7 @@ public class check_as400{
     System.out.println("      ICSWTCHRDY <grp>  = Check for multiple conditions for switch readiness.");
     //System.out.println("      ---------- CUB check CLP ----------");
   	//System.out.println("      CMD              = Check Disk I/O, Transaction count....(Only for CUB)");
-    System.out.println("                                                                                   ");
+        System.out.println("                                                                                   ");
 		System.out.println("-h\n   Print this help screen");
 		System.out.println("-V\n   Print version information");
 		System.out.println("-d\n   Be verbose (debug)\n       NOTE: Needs to be one of the first arguments to work");
@@ -563,25 +565,37 @@ public class check_as400{
       case DMWRKNODE:
           send("CHGCURLIB CURLIB(ICLUSTER)\r");
           waitReceive("changed to ICLUSTER",NONE);
+          send("CALL QCMD \r");
+          waitReceive("F3=",NONE);
+          send((char)27+"0");
+          waitReceive("F3=",NONE);
           send("CHGVTMAP DOWN(*CTLD *CTLF *NXTSCR *ESCZ)\r");
           waitReceive("F3=",NONE);
-          send("DMWRKNODE \r");
+          send("ICLUSTER/DMWRKNODE \r");
           /*Wait and recieve output screen*/
           return waitReceive("===>",NONE);
       case DMWRKGRP:
           send("CHGCURLIB CURLIB(ICLUSTER)\r");
           waitReceive("changed to ICLUSTER",NONE);
+          send("CALL QCMD \r");
+          waitReceive("F3=",NONE);
+          send((char)27+"0");
+          waitReceive("F3=",NONE);
           send("CHGVTMAP DOWN(*CTLD *CTLF *NXTSCR *ESCZ)\r");
           waitReceive("F3=",NONE);
-          send("DMWRKGRP \r");
+          send("ICLUSTER/DMWRKGRP \r");
           /*Wait and recieve output screen*/
           return waitReceive("===>",NONE);
       case DMSWTCHRDY:
           send("CHGCURLIB CURLIB(ICLUSTER)\r");
           waitReceive("changed to ICLUSTER",NONE);
+          send("CALL QCMD \r");
+          waitReceive("F3=",NONE);
+          send((char)27+"0");
+          waitReceive("F3=",NONE);
           send("CHGVTMAP DOWN(*CTLD *CTLF *NXTSCR *ESCZ)\r");
           waitReceive("F3=",NONE);
-          send("DMSWTCHRDY ICGROUP("+ARGS.icGroup+") \r");
+          send("ICLUSTER/DMSWTCHRDY ICGROUP("+ARGS.icGroup+") \r");
           /*Wait and recieve output screen*/
           return waitReceive("===>",NONE);
 			case CMDLOGIN:
@@ -1256,13 +1270,16 @@ public class check_as400{
 
   public static int parseICNodeSts(String buffer){
       int returnStatus=UNKNOWN;
-      String failcnt="No",inactcnt="No",unkncnt="No";
+      String noauthrzd="No",failcnt="No",inactcnt="No",unkncnt="No";
       int i=0;    
       boolean botflag=true;
         
       if(ARGS.checkVariable==ICNODE){
          while(botflag){
-            if(buffer.indexOf("FAILED")!=-1){
+        	 if(buffer.indexOf("not authorized")!=-1){
+                 noauthrzd="Yes";
+            }
+        	if(buffer.indexOf("FAILED")!=-1){
                failcnt="Yes";
             }
             if(buffer.indexOf("INACTIVE")!=-1){
@@ -1280,7 +1297,7 @@ public class check_as400{
                i++;
             }
          }
-         if(failcnt=="Yes" || inactcnt=="Yes" || unkncnt == "Yes"){
+         if(noauthrzd=="Yes" || failcnt=="Yes" || inactcnt=="Yes" || unkncnt == "Yes"){
                System.out.print("CRITICAL - ");
                returnStatus=CRITICAL;
          }
@@ -1292,7 +1309,12 @@ public class check_as400{
                System.out.print("OK - ");
                returnStatus=OK;
          }
+         if(noauthrzd=="Yes"){
+        	 System.out.println("User not authorized to ICLUSTER"); 
+         }
+         else{
          System.out.println("FAILED:"+failcnt+", INACTIVE:"+inactcnt+", UNKNOWN:"+unkncnt);
+         }
       }
       
       return returnStatus;
@@ -1300,11 +1322,14 @@ public class check_as400{
 
   public static int parseICGrpSts(String buffer){
       int returnStatus=UNKNOWN;
-      String indbtcnt="No",inactcnt="No",unkncnt="No",nonecnt="No",errcnt="No",swocnt="No",befxcnt="No",stscnt="No",strjcnt="No",trgcnt="No",chkidcnt="No",constrcnt="No",chgrlcnt="No",mrkpcnt="No",aftxcnt="No",rsscnt="No",endapycnt="No";
+      String noauthrzd="No",indbtcnt="No",inactcnt="No",unkncnt="No",nonecnt="No",errcnt="No",swocnt="No",befxcnt="No",stscnt="No",strjcnt="No",trgcnt="No",chkidcnt="No",constrcnt="No",chgrlcnt="No",mrkpcnt="No",aftxcnt="No",rsscnt="No",endapycnt="No";
       int i=0;    
       boolean botflag=true;
       if(ARGS.checkVariable==ICGROUP){
          while(botflag){
+            if(buffer.indexOf("authorized")!=-1){
+                 noauthrzd="Yes";
+            }
             if(buffer.indexOf("*INDOUBT")!=-1){
                indbtcnt="Yes";
             }
@@ -1333,7 +1358,7 @@ public class check_as400{
                System.out.print("WARNING - ");
                returnStatus=WARN;
          }
-         else if(indbtcnt=="Yes" || unkncnt == "Yes" || nonecnt == "Yes" || errcnt == "Yes"){
+         else if(noauthrzd=="Yes" || indbtcnt=="Yes" || unkncnt == "Yes" || nonecnt == "Yes" || errcnt == "Yes"){
                System.out.print("CRITICAL - ");
                returnStatus=CRITICAL;
          }
@@ -1345,18 +1370,28 @@ public class check_as400{
                System.out.print("OK - ");
                returnStatus=OK;
          }
+         if(noauthrzd=="Yes"){
+        	 System.out.println("User not authorized to ICLUSTER"); 
+         }
+         else{
          System.out.println("INDOUBT:"+indbtcnt+", INACTIVE:"+inactcnt+", UNKNOWN:"+unkncnt+", NONE:"+nonecnt+", IN_ERROR:"+errcnt);
-      }
-      
-      return returnStatus;
+         }
+       }
+       return returnStatus;
   }    
-
+  
+  
   public static int parseICSwRdySts(String buffer){
       int returnStatus=UNKNOWN;
-      String ntvldcnt="No",suscnt="No",ooscnt="No",latcnt="No",cmtcnt="No";
+      String noauthrzd="No",ntvldcnt="No",suscnt="No",ooscnt="No",latcnt="No",cmtcnt="No";
       int i=0;    
       if(ARGS.checkVariable==ICSWRDY){
-            if(buffer.indexOf("code 1")!=-1){
+    	  if(buffer.indexOf("not authorized")!=-1){
+              noauthrzd="Yes";
+              System.out.println("CRITICAL - User not authorized to ICLUSTER");
+              returnStatus=CRITICAL;
+          }
+    	  if(buffer.indexOf("code 1")!=-1){
                ntvldcnt="Yes";
                System.out.println("CRITICAL - Group not valid for a roleswap.");
                returnStatus=CRITICAL;
