@@ -77,8 +77,11 @@ CHANGE LOG:
 
 1.3.2
 * Modified Rocket iCluster checks to recognize Nagios user Not Authorized to iCluster
+
+1.4.1
+*Added SSL connection option.
 --------------------------------------------------------------
-Last Modified  2015/06/29 by Shao-Pin, Cheng  , Taipei, Taiwan
+Last Modified  2015/10/16 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
 --------------------------------------------------------------*/
 
@@ -88,9 +91,11 @@ import java.net.*;
 import java.text.*;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.3.2";
+	final static String VERSION="1.4.1";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -152,9 +157,12 @@ public class check_as400{
         System.out.println("                                                                                   ");
 		System.out.println("-h\n   Print this help screen");
 		System.out.println("-V\n   Print version information");
+		System.out.println("-SSL\n   Use SSL connection\n       NOTE: Need to be one of the first arguments to work");
+		System.out.println("                          This option must import CE to Java first, EX:");
+		System.out.println("                          keytool -import -trustcacerts -keystore /.../security/cacerts -storepass changeit -noprompt -alias xxx -file XXX.cer");
 		System.out.println("-d\n   Be verbose (debug)\n       NOTE: Needs to be one of the first arguments to work");
 		System.out.println("-D\n   Be verbose and dump screen outputs (debug)");
-		System.out.println("      NOTES: Needs to be one of the first arguments to work");
+		System.out.println("       NOTES: Needs to be one of the first arguments to work");
 		System.out.println("             When things are not working, use this flag, redirect the output to a file and send it to me!");
 		System.out.println("\nNotes:\n -CPU, DB and US threshold's are decimal, JOBS, JOBQ and OUTQ ... are integers.\n");
 	}
@@ -183,6 +191,9 @@ public class check_as400{
 				}
 				else if(args[i].equals("-D")){
 					ARGS.DEBUG=ARGS.DEBUG_PLUS=true;
+				}
+				else if(args[i].equals("-SSL")){
+					ARGS.SSL=true;
 				}
 				else if(args[i].equals("-w")){
 					ARGS.tHoldWarn=(new Double(args[++i])).doubleValue();
@@ -1610,10 +1621,17 @@ public class check_as400{
 	//open connection to server
 	public static boolean open() {
 		try {
-			ioSocket=new Socket(ARGS.hostName,23);
-			
-			ioWriter=new PrintWriter(ioSocket.getOutputStream(),true);
-			ioReader=new BufferedReader(new InputStreamReader(ioSocket.getInputStream()));
+			if(ARGS.SSL){
+				SSLSocket sslSocket = (SSLSocket) SSLSocketFactory.getDefault()
+				.createSocket(ARGS.hostName,992);
+				ioWriter=new PrintWriter(sslSocket.getOutputStream(),true);
+			  ioReader=new BufferedReader(new InputStreamReader(sslSocket.getInputStream()));
+		  }
+		  else{
+		  	ioSocket=new Socket(ARGS.hostName,23);
+		  	ioWriter=new PrintWriter(ioSocket.getOutputStream(),true);
+			  ioReader=new BufferedReader(new InputStreamReader(ioSocket.getInputStream()));
+		  }
 
 			send("\n\r");
 
@@ -1628,7 +1646,15 @@ public class check_as400{
 	//close connection to server
 	public static boolean close() {
 		try {
-			ioSocket.close();
+			if(ARGS.SSL){
+				sslSocket.close();
+		  }
+		  else{
+		  ioSocket.close();
+		  }
+			return true;
+		}
+		catch (  NullPointerException expected){
 			return true;
 		}
 		catch (IOException e) {
@@ -1671,7 +1697,8 @@ public class check_as400{
 		}
 		return countString;
 	}
-
+	
+	private static SSLSocket sslSocket;
 	private static Socket ioSocket;
 	private static PrintWriter ioWriter;
 	private static BufferedReader ioReader;

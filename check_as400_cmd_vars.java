@@ -22,6 +22,6 @@ public class check_as400_cmd_vars{
 
         //And of course everybody needs debug variables for when
         //things get ugly!
-        public boolean DEBUG=false,DEBUG_PLUS=false;
+        public boolean DEBUG=false,DEBUG_PLUS=false,SSL=false;
 };
 
