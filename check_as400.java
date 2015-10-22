@@ -78,8 +78,10 @@ CHANGE LOG:
 1.3.2
 * Modified Rocket iCluster checks to recognize Nagios user Not Authorized to iCluster
 
-1.4.1
-*Added SSL connection option.
+1.4.2
+* Added SSL connection option.
+* Fixed username display in Login ERROR message. 
+* Fixed Log in failure on 10 character username
 --------------------------------------------------------------
 Last Modified  2015/10/16 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
@@ -95,7 +97,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.4.1";
+	final static String VERSION="1.4.2";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -1446,8 +1448,11 @@ public class check_as400{
 		/*Wait for the login screen*/
 		if(waitReceive("IBM CORP",NONE)!=null){
 			if(ARGS.DEBUG) System.out.println("  sending login information for "+ARGS.userName+"...");
+			int unameLength;
+			unameLength=ARGS.userName.length();
 			/*send login user/pass*/
-			send(ARGS.userName+"\t");
+			send(ARGS.userName);
+			if (unameLength != 10) send("\t");
 			send(ARGS.passWord+"\r");
 			
 			if(ARGS.DEBUG) System.out.println("  waiting for login to process...");
@@ -1514,7 +1519,7 @@ public class check_as400{
 						System.exit(WARN);
 					}
 					else if(buffer.indexOf("CPF1394")!=-1){
-            System.out.println("CRITICAL - Login ERROR, User profile NAGIOS cannot sign on.");
+            System.out.println("CRITICAL - Login ERROR, User profile "+ARGS.userName+" cannot sign on.");
             close();
             System.exit(CRITICAL);
           }
