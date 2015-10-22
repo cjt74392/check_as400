@@ -21,6 +21,7 @@ Quick And Easy
 Manual Installation 
 -------------------
 1) For languages other than English ,  change system library list to ENGLISH
+
 	(optional 1 - Support EN/FR/DE)
 	1.If your system is running on another language than english, follow the steps below
 	# cd /usr/local/nagios/libexec/check_as400/
@@ -28,10 +29,11 @@ Manual Installation
 	# cp check_as400_lang_french.java ../check_as400_lang.java
 	3.Then compile it
 	# javac check_as400_lang.java
-
+	
 	(optional 2 - Change Nagios user profile to EN)
 	The NAGIOS user profile has INLPGM parameter set to a CLP (MAINGBCL)
 	This is the MAINGBCL: (This CLP change the language in English)
+	
 	/*********************************************************************/ 
 	/* SERVER PROFILE FOR NAGIOS !!!!!!!!!                                                               */
 	/*********************************************************************/ 
