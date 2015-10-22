@@ -80,8 +80,8 @@ CHANGE LOG:
 
 1.4.2
 * Added SSL connection option.
-* Fixed username display in Login ERROR message. 
-* Fixed Log in failure on 10 character username
+* Fixed user name display in Login ERROR message. 
+* Fixed Log in failure on 10 character username.
 --------------------------------------------------------------
 Last Modified  2015/10/16 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
