@@ -1,11 +1,49 @@
-Multi-Lang Features may be incomplete
+========================================================================
 
-1.Most easy way is change system LIB list to ENGLISH
-(1).Logon AS/400 Nagios check ID.
-(2).CHGSYSLIBL LIB(QSYS2984) OPTION(*ADD)
+For different language 
+(Multi-Lang Features may be incomplete)
+========================================================================
 
-or
 
-2.Manual compile your LANG
-(1).copy and rename.   	to ../check_as400_lang.java
-(2).Re compile.		javac check_as400_lang.java
+(optional 1 - Support EN/FR/DE/IT)
+
+1.If your system is running on another language than english, follow the steps below
+
+# cd /usr/local/nagios/libexec/check_as400/Lang Source
+
+2.Then copy the java class file of your language (EX:substitute french with your language)
+
+# cp check_as400_lang_french.java ../check_as400_lang.java
+
+
+3.Then compile it
+
+# javac check_as400_lang.java
+
+
+
+
+
+(optional 2 - Change Nagios user profile to EN)
+
+The NAGIOS user profile has INLPGM parameter set to a CLP (MAINGBCL)
+
+This is the MAINGBCL:
+This CLP change the language in English.
+
+
+/*********************************************************************
+//* SERVER PROFILE FOR NAGIOS !!!!!!!!!                              */
+
+/*********************************************************************/ 
+
+PGM                                                                                                                                   
+              
+       CHGSYSLIBL LIB(QSYS2924)
+       RCLRSC                                                                                                               
+
+ENDPGM   
+
+                                                                                                                         
+
+

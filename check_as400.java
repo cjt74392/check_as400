@@ -82,6 +82,9 @@ CHANGE LOG:
 * Added SSL connection option.
 * Fixed user name display in Login ERROR message. 
 * Fixed Log in failure on 10 character username.
+
+1.4.2_1
+* Added ITALIAN language. (Thanks to Riccardo Morandotti)
 --------------------------------------------------------------
 Last Modified  2015/10/16 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
@@ -705,7 +708,7 @@ public class check_as400{
 	public static int parseDspMsg(String paramString) {
          if(paramString.indexOf(LANG.NO_MESSAGES_AVAILABLE)!=-1){
          		if(paramString.indexOf(LANG.NO_MESSAGES_AVAILABLE)<paramString.indexOf(LANG.MSG_NOT_NEED_REPLY)){
-                 System.out.println("OK - No messages | msgnum=0cnt;;;0; ");
+                 System.out.println("OK - No messages");
                  return 0;
             }
          }
