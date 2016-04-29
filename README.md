@@ -22,7 +22,7 @@ Manual Installation
 -------------------
 1) For languages other than English ,  change system library list to ENGLISH
 
-	(optional 1 - Support EN/FR/DE)
+	(optional 1 - Support EN/FR/DE/IT)
 	1.If your system is running on another language than english, follow the steps below
 	# cd /usr/local/nagios/libexec/check_as400/
 	2.Then copy the java class file of your language (EX:substitute french with your language)
