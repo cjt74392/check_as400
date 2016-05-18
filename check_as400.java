@@ -83,8 +83,9 @@ CHANGE LOG:
 * Fixed user name display in Login ERROR message. 
 * Fixed Log in failure on 10 character username.
 
-1.4.2_1
+1.4.3
 * Added ITALIAN language. (Thanks to Riccardo Morandotti)
+* Fixed CJS status
 --------------------------------------------------------------
 Last Modified  2015/10/16 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
@@ -100,7 +101,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.4.2";
+	final static String VERSION="1.4.3";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -943,7 +944,7 @@ public class check_as400{
 		}
 		
 		start=findToken(buffer,ARGS.job,2);
-		String status=(buffer.substring(start+53,start+60)).trim();
+		String status=(buffer.substring(start+53,start+59)).trim();
 		if(status.equals(ARGS.chk_status)){
 			System.out.print("OK - ");
 			returnStatus=OK;
