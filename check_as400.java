@@ -86,8 +86,12 @@ CHANGE LOG:
 1.4.3
 * Added ITALIAN language. (Thanks to Riccardo Morandotti)
 * Fixed CJS status
+
+1.4.4
+* Fixed CPUT problem on OS V7R2.
+* Added check job temporary storage used. (Thanks, BIANCHI Xavier)
 --------------------------------------------------------------
-Last Modified  2015/10/16 by Shao-Pin, Cheng  , Taipei, Taiwan
+Last Modified  2017/04/28 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
 --------------------------------------------------------------*/
 
@@ -101,7 +105,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.4.3";
+	final static String VERSION="1.4.4";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -127,6 +131,7 @@ public class check_as400{
 	  //System.out.println("                          onlyone		= go to critical if job is shown twice otherwise ignore it");
 		System.out.println("                          NOTE: if JobStatus is set, it has highest Priority");
 		System.out.println("      JOBS              = Number of jobs in system.");
+		System.out.println("      CJM <job>         = Check the temporary storage used of job.");
 		System.out.println("      JOBQ <lib/jobq>   = Number of jobs in JOBQ.");
 		System.out.println("      CPU               = CPU load.");
 		System.out.println("      CPUC <cpuBase>    = CPU load, Consider Current processing capacity. (CPU used * VP nums / cpuBase).");
@@ -339,6 +344,12 @@ public class check_as400{
 								}
 							}
 					}
+					else if(args[i].equals("CJM")){
+            ARGS.command=DSPJOBM;
+            ARGS.checkVariable=DJOBM;
+            ARGS.job=args[++i];
+            flag=flag | CMD_FLAG | ARG_FLAG;
+          }
 					else if(args[i].equals("LOGIN")){
 						ARGS.command=CMDLOGIN;
 						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
@@ -520,6 +531,12 @@ public class check_as400{
 				waitReceive(LANG.SELECTION,GETJOB);
 				send("1\r");
 				return waitReceive("F12=",NONE);
+			case DSPJOBM:
+        send("dspjob "+ARGS.job+" \r");
+        /*Wait and recieve output screen*/
+        waitReceive(LANG.SELECTION,GETJOBM);
+        send("3\r");
+        return waitReceive("F12=",NONE);
 			case WRKJOBQ:
 				send("wrkjobq "+ARGS.jobQ+"* \r");
 				/*Wait and recieve output screen*/
@@ -532,8 +549,8 @@ public class check_as400{
 				send("WRKACTJOB SEQ(*CPU) JOB("+ARGS.job+")\r");
 				/*Wait and recieve output screen*/
 				waitReceive("===>",NONE);
-	 			send((char)27+"-");
-	 			waitReceive("===>",NONE);
+				//After V7R2 not necessary. send((char)27+"-");       
+				//After V7R2 not necessary. waitReceive("===>",NONE);
 	 			send((char)27+"0");
 				return  waitReceive("AuxIO",NONE);
 			case DSPFD:
@@ -636,6 +653,8 @@ public class check_as400{
 				return parseDspSbsD(buffer);
 			case DSPJOB:
 				return parseDspJob(buffer);
+      case DSPJOBM:
+        return parseDspJobM(buffer);
 			case WRKJOBQ:
 				return parseWrkJobq(buffer);
 			case WRKACTJOB:
@@ -671,7 +690,7 @@ public class check_as400{
 	public static int getStatus(double val){
 		int returnStatus=UNKNOWN;
 		
-		if(ARGS.checkVariable==CPU || ARGS.checkVariable==DB || ARGS.checkVariable==JOBS || ARGS.checkVariable==AJOBS || ARGS.checkVariable==OUTQ || ARGS.checkVariable==DBFault || ARGS.checkVariable==CMD || ARGS.checkVariable==ASP || ARGS.checkVariable==CPUC || ARGS.checkVariable==CPUT || ARGS.checkVariable==MIMIX || ARGS.checkVariable==JOBQ || ARGS.checkVariable==FDN  ){
+		if(ARGS.checkVariable==CPU || ARGS.checkVariable==DB || ARGS.checkVariable==JOBS || ARGS.checkVariable==AJOBS || ARGS.checkVariable==OUTQ || ARGS.checkVariable==DBFault || ARGS.checkVariable==CMD || ARGS.checkVariable==ASP || ARGS.checkVariable==CPUC || ARGS.checkVariable==CPUT || ARGS.checkVariable==MIMIX || ARGS.checkVariable==JOBQ || ARGS.checkVariable==FDN || ARGS.checkVariable==DJOBM ){
 			if(val<ARGS.tHoldWarn){
 				System.out.print("OK - ");
 				returnStatus=OK;
@@ -841,10 +860,26 @@ public class check_as400{
 			returnStatus=CRITICAL;
 		}
 
-		System.out.println("job("+ARGS.job+") status("+status+")");
+		System.out.println("Job("+ARGS.job+") status("+status+")");
 
 		return returnStatus;
 	}
+
+  public static int parseDspJobM(String buffer){
+    int start=0;
+    int returnStatus=UNKNOWN; 
+       
+    start=findToken(buffer,":",12)+1;
+    String memoryS=buffer.substring(start,start+12).trim();
+    String memoryS1=memoryS.replaceAll("\\D(.*)","").trim();
+    int memory=Integer.parseInt(memoryS1);
+
+    returnStatus=getStatus(memory);
+    
+    System.out.println("Temporary storage used by job "+ARGS.job+" : "+memory+" | swap="+memory+";"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; ");
+       
+    return returnStatus;       
+  }
 	
 	public static int parseDspFd(String buffer){
     int start=0;
@@ -1110,7 +1145,7 @@ public class check_as400{
 			returnStatus=getStatus(num1);
 			System.out.println("Disk Busy avg:("+nf.format(num1)+"%). | cnt="+nf.format(num1)+";"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; ");
 		}
-		else if(CMD.equals("TRSCOUNT")){
+		else if(CMD.equals("TRSCOUNT") || CMD.equals("TRSCOUNT1")){
 			start=findToken(buffer,"000001",1)+7;
 			Double num1=(new Double(checkDouble((buffer.substring(start,start+16)).trim()))).doubleValue();
 			Double Teller1=(new Double(checkDouble((buffer.substring(start+19,start+32)).trim()))).doubleValue();
@@ -1581,6 +1616,18 @@ public class check_as400{
 						logout(CRITICAL);
           }					
         }
+        else if(procedure==GETJOBM){
+          if(buffer.indexOf(LANG.DUPLICATE)!=-1){
+            System.out.println("WARNING - duplicate jobs("+ARGS.job+")");
+            send((char)27+"3");
+            waitReceive("===>",NONE);
+            logout(CRITICAL);
+          }
+          if(buffer.indexOf(LANG.JOB)!=-1){
+            System.out.println("CRITICAL - job("+ARGS.job+") NOT IN SYSTEM");
+            logout(CRITICAL);
+          }
+        }              
 				//check for command not allowed errors
 				if(procedure!=LOGIN){
 					if(buffer.indexOf(LANG.LIBRARY_NOT_ALLOWED)!=-1){
@@ -1715,13 +1762,13 @@ public class check_as400{
 	private static check_as400_lang LANG;
 	
 	//These constants are for the Commands
-	final static int WRKSYSSTS=0,WRKOUTQ=1,DSPMSG=2,DSPSBSD=3,DSPJOB=4,WRKACTJOB=5,CMDLOGIN=6,CMDCLP=7,WRKDSKSTS=8,WRKASPBRM=9,WRKSYSACT=10,DSPDGSTS=11,WRKJOBQ=12,CHKJOBSTS=13,DMWRKNODE=14,DMWRKGRP=15,DMSWTCHRDY=16,TOPCPUJOB=17,WRKPRB=18,DSPFD=19;
+	final static int WRKSYSSTS=0,WRKOUTQ=1,DSPMSG=2,DSPSBSD=3,DSPJOB=4,WRKACTJOB=5,CMDLOGIN=6,CMDCLP=7,WRKDSKSTS=8,WRKASPBRM=9,WRKSYSACT=10,DSPDGSTS=11,WRKJOBQ=12,CHKJOBSTS=13,DMWRKNODE=14,DMWRKGRP=15,DMSWTCHRDY=16,TOPCPUJOB=17,WRKPRB=18,DSPFD=19,DSPJOBM=20;
 	//These constants are for the variables
-	final static int CPU=0,DB=1,US=2,JOBS=3,MSG=4,OUTQ=5,SBS=6,DJOB=7,AJOBS=8,DBFault=9,CMD=10,DISK=11,ASP=12,CPUC=13,MIMIX=14,JOBQ=15,JOBSTS=16,ICNODE=17,ICGROUP=18,ICSWRDY=19,CPUT=20,PRB=21,FDN=22;
+	final static int CPU=0,DB=1,US=2,JOBS=3,MSG=4,OUTQ=5,SBS=6,DJOB=7,AJOBS=8,DBFault=9,CMD=10,DISK=11,ASP=12,CPUC=13,MIMIX=14,JOBQ=15,JOBSTS=16,ICNODE=17,ICGROUP=18,ICSWRDY=19,CPUT=20,PRB=21,FDN=22,DJOBM=23;
 	//These constants are for the wait recieve, controlling
 	//any other logic that it should turn on. For example checking
 	//for invalid login.
-	final static int NONE=0,LOGIN=1,GETOUTQ=2,GETJOB=3,GETSBSD=4,GETFD=5;
+	final static int NONE=0,LOGIN=1,GETOUTQ=2,GETJOB=3,GETSBSD=4,GETFD=5,GETJOBM=6;
 	//Theses constants are the exit status for each error type
 	final static int OK=0,WARN=1,CRITICAL=2,UNKNOWN=3;
 	//These constants are used as flags on OUTQ
