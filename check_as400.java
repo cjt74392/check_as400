@@ -90,6 +90,9 @@ CHANGE LOG:
 1.4.4
 * Fixed CPUT problem on OS V7R2.
 * Added check job temporary storage used. (Thanks, BIANCHI Xavier)
+
+1.4.5
+* Fixed ASP problem on OS V7R2 (If your OS is V6, you need change source code. find string "parseWrkAspBrm". *V5R3 +128) 
 --------------------------------------------------------------
 Last Modified  2017/04/28 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
@@ -872,6 +875,7 @@ public class check_as400{
     start=findToken(buffer,":",12)+1;
     String memoryS=buffer.substring(start,start+12).trim();
     String memoryS1=memoryS.replaceAll("\\D(.*)","").trim();
+    //System.out.println(memoryS1);
     int memory=Integer.parseInt(memoryS1);
 
     returnStatus=getStatus(memory);
@@ -1226,7 +1230,8 @@ public class check_as400{
 	public static int parseWrkAspBrm(String buffer){
 		int start=0;
 		int returnStatus=UNKNOWN;		
-		start=findToken(buffer,"Used",1)+201;
+		//start=findToken(buffer,"Used",1)+201;  //V5R3 - V6R1
+		start=findToken(buffer,"Ovrflw",1)+130;  //V7R2
 		double useds=(new Double(checkDouble((buffer.substring(start,start+5)).trim()))).doubleValue();
 		returnStatus=getStatus(useds);
 		 if(returnStatus==OK){
