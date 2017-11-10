@@ -92,7 +92,7 @@ CHANGE LOG:
 * Added check job temporary storage used. (Thanks, BIANCHI Xavier)
 
 1.4.5
-* Fixed ASP problem on OS V7R2 (If your OS is V6, you need change source code. find string "parseWrkAspBrm". *V5R3 +128) 
+* Fixed ASP problem on OS V7R2 (If your OS is V6, you need to change source code. find string "parseWrkAspBrm". *V5R3 +128) 
 --------------------------------------------------------------
 Last Modified  2017/04/28 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
@@ -108,7 +108,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.4.4";
+	final static String VERSION="1.4.5";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
