@@ -92,7 +92,11 @@ CHANGE LOG:
 * Added check job temporary storage used. (Thanks, BIANCHI Xavier)
 
 1.4.5
-* Fixed ASP problem on OS V7R2 (If your OS is V6, you need to change source code. find string "parseWrkAspBrm". *V5R3 +128) 
+* Fixed ASP problem on OS V7R2 (If your OS is V6, you need to change source code. find string "parseWrkAspBrm". *V5R3 +128)
+
+1.4.6
+* Fixed ASP CPU JOB problem on OS V7R2
+* TLS 1.2 support (If your java version lower then 1.8, you need uncomment sslSocket.setEnabledProtocols(new String[] {"TLSv1.2"}); )10/30/18
 --------------------------------------------------------------
 Last Modified  2017/04/28 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
@@ -283,6 +287,24 @@ public class check_as400{
 						ARGS.command=CMDCLP;
 						ARGS.checkVariable=CMD;
 						ARGS.cmdCL=args[++i];
+						++i;
+						while(true){
+							if(args[i].equals("XXPARM")){
+								ARGS.cmd_parm=args[i];
+								ARGS.outQFlags=ARGS.outQFlags | CMDPARM_FLAG;
+								i++;
+							}
+							else{
+								i--;
+								break;
+							}
+						}
+						flag=flag | CMD_FLAG | ARG_FLAG;
+					}					
+					else if(args[i].equals("DTAQD")){
+						ARGS.command=DSPDTAQD;
+						ARGS.checkVariable=DTAQD;
+						ARGS.dtaqdName=args[++i];
 						flag=flag | CMD_FLAG | ARG_FLAG;
 					}
 					else if(args[i].equals("DISK")){
@@ -568,9 +590,20 @@ public class check_as400{
 				return waitReceive("===>",NONE);
 			case CMDCLP:
 				//send("CALL SJLLIB/DISKBUSY\r");
-				send("CALL "+ARGS.cmdCL+" \r");
+				if (ARGS.cmd_parm!=null){
+				send("CALL "+ARGS.cmdCL+" "+ARGS.cmd_parm+"\r");
 				/*Wait and recieve output screen*/
 				return waitReceive("F20=",NONE);
+			  }
+			  else {
+			  send("CALL "+ARGS.cmdCL+" \r");
+				/*Wait and recieve output screen*/
+				return waitReceive("F20=",NONE);
+			  }
+			case DSPDTAQD:
+				send("DSPDTAQD "+ARGS.dtaqdName+" \r");
+				/*Wait and recieve output screen*/
+				return  waitReceive("F3=",NONE);
 			case WRKDSKSTS:
 				send("CHGVTMAP DOWN(*CTLD *CTLF *NXTSCR *ESCZ)\r");
 				waitReceive("F3=",NONE);
@@ -666,6 +699,8 @@ public class check_as400{
 				return parseWrkActJobTop(buffer);
 			case CMDCLP:
 				return parseCmdClp(buffer);
+			case DSPDTAQD:
+				return parseDspDtaqd(buffer);
 			case WRKDSKSTS:
 				return parseWrkDskSts(buffer);
 			case WRKASPBRM:
@@ -693,7 +728,7 @@ public class check_as400{
 	public static int getStatus(double val){
 		int returnStatus=UNKNOWN;
 		
-		if(ARGS.checkVariable==CPU || ARGS.checkVariable==DB || ARGS.checkVariable==JOBS || ARGS.checkVariable==AJOBS || ARGS.checkVariable==OUTQ || ARGS.checkVariable==DBFault || ARGS.checkVariable==CMD || ARGS.checkVariable==ASP || ARGS.checkVariable==CPUC || ARGS.checkVariable==CPUT || ARGS.checkVariable==MIMIX || ARGS.checkVariable==JOBQ || ARGS.checkVariable==FDN || ARGS.checkVariable==DJOBM ){
+		if(ARGS.checkVariable==CPU || ARGS.checkVariable==DB || ARGS.checkVariable==JOBS || ARGS.checkVariable==AJOBS || ARGS.checkVariable==OUTQ || ARGS.checkVariable==DBFault || ARGS.checkVariable==CMD || ARGS.checkVariable==ASP || ARGS.checkVariable==CPUC || ARGS.checkVariable==CPUT || ARGS.checkVariable==MIMIX || ARGS.checkVariable==JOBQ || ARGS.checkVariable==FDN || ARGS.checkVariable==DJOBM || ARGS.checkVariable==DTAQD){
 			if(val<ARGS.tHoldWarn){
 				System.out.print("OK - ");
 				returnStatus=OK;
@@ -1055,25 +1090,30 @@ public class check_as400{
 		else if(ARGS.checkVariable==US){
 			double percentFree,total,percentUsed,USwar,UScri;
 			//If reach QSTGLOWLMT
-                        int stgcon=0;
-                        int aspcol=11;
-                        if(buffer.indexOf("Critical storage condition exists")!=-1){
-                                        stgcon = 15;
-                                        aspcol = 8;
-                        }
+      int stgcon=0;
+      int aspcol=11;
+      if(buffer.indexOf("Critical storage condition exists")!=-1){
+      		stgcon=15;
+      		aspcol=8;
+      }
 
 			start=findToken(buffer,":",10)+1+stgcon;
+			if(buffer.indexOf("UTC+")!=-1){
+				start=findToken(buffer,":",11)+1+stgcon;  //V7R3 or UTC
+			} 
 			percentUsed=(new Double(checkDouble(buffer.substring(start,start+aspcol)))).doubleValue();
-			start=findToken(buffer,":",10)+1+stgcon;
 			percentFree=100.0-(new Double(checkDouble(buffer.substring(start,start+aspcol)))).doubleValue();
 			USwar=100-ARGS.tHoldWarn;
 			UScri=100-ARGS.tHoldCritical;
 			if(buffer.indexOf(LANG.DB_CAPABILITY)!=-1){
 			start=findToken(buffer,":",6)+1;
 			}
-                        else{
-                        start=findToken(buffer,":",8)+1;
-                        }
+			else if(buffer.indexOf("UTC+")!=-1){
+				start=findToken(buffer,":",9)+1; //V7R3 or UTC time
+			}
+      else{
+        start=findToken(buffer,":",8)+1;
+      }
 			String tot=((buffer.substring(start,start+11))).trim();
 			total=(new Double(checkDouble(tot.substring(0,tot.length()-1)))).doubleValue();
 
@@ -1083,10 +1123,13 @@ public class check_as400{
 		}
 		else if(ARGS.checkVariable==JOBS){
 			if(buffer.indexOf(LANG.DB_CAPABILITY)!=-1){
-			start=findToken(buffer,":",11)+1;
+				start=findToken(buffer,":",11)+1;
+			}
+			else if(buffer.indexOf("UTC+")!=-1){
+				start=findToken(buffer,":",10)+1; //V7R3 or UTC time
 			}
 			else{
-			start=findToken(buffer,":",9)+1;
+				start=findToken(buffer,":",9)+1;
 			}
 			int jobs=(new Integer((buffer.substring(start,start+11)).trim())).intValue();
 
@@ -1179,6 +1222,15 @@ public class check_as400{
 		return returnStatus;
 	}
 
+	public static int parseDspDtaqd(String buffer){
+		int start=0;
+		int returnStatus=UNKNOWN;		
+		start=findToken(buffer,":",5)+1;
+		int dtaqNbr=(new Integer((buffer.substring(start,start+6)).trim())).intValue();
+		returnStatus=getStatus(dtaqNbr);
+		System.out.println(ARGS.dtaqdName+" Data Queue Number of Entries: "+dtaqNbr+" . | num="+dtaqNbr+";"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; ");
+		return returnStatus;
+	}
 
 	public static int parseWrkDskSts(String buffer){
 		int returnStatus=UNKNOWN;
@@ -1272,7 +1324,12 @@ public class check_as400{
 		waitReceive("F3=",NONE);
 		send("WRKSYSSTS\r");
 		buffer=waitReceive("F3=",NONE);
-		start=findToken(buffer,":",3)+1;
+		if(buffer.indexOf("UTC+")!=-1){
+			start=findToken(buffer,":",4)+1; //V7R3 or UTC time
+		}
+		else{
+			start=findToken(buffer,":",3)+1;
+		}
 		double cpus=(new Double(checkDouble((buffer.substring(start,start+11)).trim()))).doubleValue();
 		returnStatus=getStatus(cpus);
 		
@@ -1685,6 +1742,7 @@ public class check_as400{
 			if(ARGS.SSL){
 				SSLSocket sslSocket = (SSLSocket) SSLSocketFactory.getDefault()
 				.createSocket(ARGS.hostName,992);
+				//sslSocket.setEnabledProtocols(new String[] {"TLSv1.2"});
 				ioWriter=new PrintWriter(sslSocket.getOutputStream(),true);
 			  ioReader=new BufferedReader(new InputStreamReader(sslSocket.getInputStream()));
 		  }
@@ -1767,9 +1825,9 @@ public class check_as400{
 	private static check_as400_lang LANG;
 	
 	//These constants are for the Commands
-	final static int WRKSYSSTS=0,WRKOUTQ=1,DSPMSG=2,DSPSBSD=3,DSPJOB=4,WRKACTJOB=5,CMDLOGIN=6,CMDCLP=7,WRKDSKSTS=8,WRKASPBRM=9,WRKSYSACT=10,DSPDGSTS=11,WRKJOBQ=12,CHKJOBSTS=13,DMWRKNODE=14,DMWRKGRP=15,DMSWTCHRDY=16,TOPCPUJOB=17,WRKPRB=18,DSPFD=19,DSPJOBM=20;
+	final static int WRKSYSSTS=0,WRKOUTQ=1,DSPMSG=2,DSPSBSD=3,DSPJOB=4,WRKACTJOB=5,CMDLOGIN=6,CMDCLP=7,WRKDSKSTS=8,WRKASPBRM=9,WRKSYSACT=10,DSPDGSTS=11,WRKJOBQ=12,CHKJOBSTS=13,DMWRKNODE=14,DMWRKGRP=15,DMSWTCHRDY=16,TOPCPUJOB=17,WRKPRB=18,DSPFD=19,DSPJOBM=20,DSPDTAQD=21;
 	//These constants are for the variables
-	final static int CPU=0,DB=1,US=2,JOBS=3,MSG=4,OUTQ=5,SBS=6,DJOB=7,AJOBS=8,DBFault=9,CMD=10,DISK=11,ASP=12,CPUC=13,MIMIX=14,JOBQ=15,JOBSTS=16,ICNODE=17,ICGROUP=18,ICSWRDY=19,CPUT=20,PRB=21,FDN=22,DJOBM=23;
+	final static int CPU=0,DB=1,US=2,JOBS=3,MSG=4,OUTQ=5,SBS=6,DJOB=7,AJOBS=8,DBFault=9,CMD=10,DISK=11,ASP=12,CPUC=13,MIMIX=14,JOBQ=15,JOBSTS=16,ICNODE=17,ICGROUP=18,ICSWRDY=19,CPUT=20,PRB=21,FDN=22,DJOBM=23,DTAQD=24;
 	//These constants are for the wait recieve, controlling
 	//any other logic that it should turn on. For example checking
 	//for invalid login.
@@ -1778,6 +1836,8 @@ public class check_as400{
 	final static int OK=0,WARN=1,CRITICAL=2,UNKNOWN=3;
 	//These constants are used as flags on OUTQ
 	final static int OUTQ_NW=1,OUTQ_NS=2,OUTQ_NF=4;
-	//These constants are used as flags on JOBSTS
+	//These constants are used as flags on JOBSTS and CMD
 	final static int JOBSTS_NOPERM=1,JOBSTS_ONLYONE=2,JOBSTS_STATUS=4;
+	//These constants are used as flags on CMD
+	final static int CMDPARM_FLAG=1;
 };

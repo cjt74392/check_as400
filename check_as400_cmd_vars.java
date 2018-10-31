@@ -12,7 +12,7 @@ public class check_as400_cmd_vars{
         public String hostName,userName,passWord;
 
         //These store specific information on a requested operation
-        public String outQ,msgUser,subSystem,job,aspNums,cpuNum,dgDef,jobQ,status,chk_status,icNode,icGroup,cmdCL,fdFile;
+        public String outQ,msgUser,subSystem,job,aspNums,cpuNum,dgDef,jobQ,status,chk_status,icNode,icGroup,cmdCL,fdFile,cmd_parm,dtaqdName;
 
         //These keep track of what we are suppose to be checking!
         public int checkVariable,command,outQFlags=0,JobFlags;
