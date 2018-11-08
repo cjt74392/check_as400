@@ -112,7 +112,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.4.5";
+	final static String VERSION="1.4.6";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -1066,6 +1066,9 @@ public class check_as400{
 		
 		if(ARGS.checkVariable==CPU){
 			start=findToken(buffer,":",3)+1;
+			if(buffer.indexOf("UTC+")!=-1){
+				start=findToken(buffer,":",4)+1;  //V7R3 or UTC
+			} 
 			double cpu=(new Double(checkDouble((buffer.substring(start,start+11)).trim()))).doubleValue();
 
 			returnStatus=getStatus(cpu);
