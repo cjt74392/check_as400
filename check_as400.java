@@ -97,8 +97,14 @@ CHANGE LOG:
 1.4.6
 * Fixed ASP CPU JOB problem on OS V7R2
 * TLS 1.2 support (If your java version lower then 1.8, you need uncomment sslSocket.setEnabledProtocols(new String[] {"TLSv1.2"}); )10/30/18
+
+1.4.7
+* Added CUB check NTDCRAMT (Only for CUB)
+
+1.5.0
+* Fixed WRKSYSSTS check problem on V7R3
 --------------------------------------------------------------
-Last Modified  2017/04/28 by Shao-Pin, Cheng  , Taipei, Taiwan
+Last Modified  2019/06/11 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
 --------------------------------------------------------------*/
 
@@ -112,7 +118,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.4.6";
+	final static String VERSION="1.5.0";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -162,7 +168,7 @@ public class check_as400{
 		System.out.println("                          NOTE: threshold values are used on number of files");
 		System.out.println("      SBS <subsystem>   = Check if the subsystem <subsystem> is running.");
 		System.out.println("                          NOTE: specify <subsystem> as library/subsystem");
-		System.out.println("      PRB               = Check if the problem was identified.");
+		System.out.println("      PRB               = Check if the problem was identified.(Need *WRKPRB ANZPRB/CHGPRB/DLTPRB/SNDSRVRQS auth)");
 		System.out.println("      FDN               = Number of file members; specify library/filename ");
 		System.out.println("      ---------- VISION MIMIX ----------");
 		System.out.println("      MIMIX <DG name>   = Check MIMIX Data Group Unprocessed Entry Count, Transfer definition, RJ link state.");
@@ -811,7 +817,7 @@ public class check_as400{
         //MSG detial
          try {
                  String str2 = new String(str1.getBytes("ISO-8859-15"), "UTF-8");
-                 System.out.println(str2+" ( "+count+" MSG need reply) | msgnum="+count+"cnt;;;0; "); 
+                 System.out.println(str2+" ( "+count+" MSG need reply) | msgnum="+count+";;;0; "); 
          }
          catch (UnsupportedEncodingException localUnsupportedEncodingException) {
                  System.err.println(localUnsupportedEncodingException);
@@ -1141,7 +1147,12 @@ public class check_as400{
 			System.out.println(jobs+" jobs in system | jobs="+jobs+";"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; ");
 		}
 		else if(ARGS.checkVariable==DBFault){
-			start=findToken(buffer,"+",5)+2;
+			if(buffer.indexOf("UTC+")!=-1){
+			  start=findToken(buffer,"+",6)+4; //V7R3 or UTC time
+			}
+			else{
+			  start=findToken(buffer,"+",5)+2;
+		  }
 			String sDB1F=(new String((buffer.substring(start,start+6)))).trim();
 			double DB1F=(new Double(checkDouble(sDB1F.substring(0,sDB1F.length())))).doubleValue();
 			start=findToken(buffer,"+",5)+9;
@@ -1150,26 +1161,38 @@ public class check_as400{
 
 			//OS check
 			if(buffer.indexOf(LANG.DB_CAPABILITY)!=-1){
-			start=1207;
-			String sDB2F=(new String((buffer.substring(start,start+6)))).trim();
-			double DB2F=(new Double(checkDouble(sDB2F.substring(0,sDB2F.length())))).doubleValue();
-			start=1221;
-			String sNonDB2F=(new String((buffer.substring(start,start+6)))).trim();
-			double NonDB2F=(new Double(checkDouble(sNonDB2F.substring(0,sNonDB2F.length())))).doubleValue();
-			double totDB1F=DB1F+NonDB1F;
-			returnStatus=getStatus(totDB1F);
-			System.out.println("POOL 1: "+DB1F+" / "+NonDB1F+", POOL 2: "+DB2F+" / "+NonDB2F+" (DB / Non-DB Fault) | Pool1dbf="+DB1F+";;;0; Pool1ndbf="+NonDB1F+";;;0; Pool2dbf="+DB2F+";;;0; Pool2ndbf="+NonDB2F+";;;0; ");
+			  start=1207;
+			  String sDB2F=(new String((buffer.substring(start,start+6)))).trim();
+			  double DB2F=(new Double(checkDouble(sDB2F.substring(0,sDB2F.length())))).doubleValue();
+			  start=1221;
+			  String sNonDB2F=(new String((buffer.substring(start,start+6)))).trim();
+			  double NonDB2F=(new Double(checkDouble(sNonDB2F.substring(0,sNonDB2F.length())))).doubleValue();
+			  double totDB1F=DB1F+NonDB1F;
+			  returnStatus=getStatus(totDB1F);
+			  System.out.println("POOL 1: "+DB1F+" / "+NonDB1F+", POOL 2: "+DB2F+" / "+NonDB2F+" (DB / Non-DB Fault) | Pool1dbf="+DB1F+";;;0; Pool1ndbf="+NonDB1F+";;;0; Pool2dbf="+DB2F+";;;0; Pool2ndbf="+NonDB2F+";;;0; ");
 			}
 			else{
-			start=1171;
-                        String sDB2F=(new String((buffer.substring(start,start+6)))).trim();
-                        double DB2F=(new Double(checkDouble(sDB2F.substring(0,sDB2F.length())))).doubleValue();
-                        start=1185;
-                        String sNonDB2F=(new String((buffer.substring(start,start+6)))).trim();
-                        double NonDB2F=(new Double(checkDouble(sNonDB2F.substring(0,sNonDB2F.length())))).doubleValue();
-                        double totDB1F=DB1F+NonDB1F;
-			returnStatus=getStatus(totDB1F);
-			System.out.println("POOL 1: "+DB1F+" / "+NonDB1F+", POOL 2: "+DB2F+" / "+NonDB2F+" (DB / Non-DB Fault) | Pool1dbf="+DB1F+";;;0; Pool1ndbf="+NonDB1F+";;;0; Pool2dbf="+DB2F+";;;0; Pool2ndbf="+NonDB2F+";;;0; ");
+				//DB2F
+			  if(buffer.indexOf("UTC+")!=-1){
+			    start=1171+36; //V7R3 or UTC time  OK
+			  }
+		  	else{
+			    start=1171;
+		    }				
+			  String sDB2F=(new String((buffer.substring(start,start+8)))).trim();  //V7R2 +6
+        double DB2F=(new Double(checkDouble(sDB2F.substring(0,sDB2F.length())))).doubleValue();
+        //NonDB2F
+			  if(buffer.indexOf("UTC+")!=-1){
+			    start=1185+39; //V7R3 or UTC time
+			  }
+		  	else{
+			    start=1185;
+		    }
+			  String sNonDB2F=(new String((buffer.substring(start,start+8)))).trim(); //V7R2 +6
+        double NonDB2F=(new Double(checkDouble(sNonDB2F.substring(0,sNonDB2F.length())))).doubleValue();
+        double totDB1F=DB1F+NonDB1F;
+			  returnStatus=getStatus(totDB1F);
+			  System.out.println("POOL 1: "+DB1F+" / "+NonDB1F+", POOL 2: "+DB2F+" / "+NonDB2F+" (DB / Non-DB Fault) | Pool1dbf="+DB1F+";;;0; Pool1ndbf="+NonDB1F+";;;0; Pool2dbf="+DB2F+";;;0; Pool2ndbf="+NonDB2F+";;;0; ");
 			}
 		}
 		
@@ -1215,6 +1238,14 @@ public class check_as400{
 		  returnStatus=getStatus(num1);
 			//System.out.println("IFX transactions: "+nf.format(num1)+", Teller: "+nf.format(Teller1)+", MyBank: "+nf.format(MyBank1)+". | cnt="+nf.format(num1)+";"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; teller="+nf.format(Teller1)+";;;0; mybank="+nf.format(MyBank1)+";;;0; ");
 			System.out.println("IFX transactions: "+nf.format(num1)+", Teller: "+nf.format(Teller1)+", MyBank: "+nf.format(MyBank1)+". | cnt="+num1+";"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; teller="+Teller1+";;;0; mybank="+MyBank1+";;;0; ");
+		}
+		else if(CMD.equals("CSLOG1CLP")){
+			start=findToken(buffer,"...",1)+8;
+			double NTDCRAMTc=(new Double(checkDouble((buffer.substring(start,start+5)).trim()))).doubleValue();
+			start=findToken(buffer,"TIMES...",1)+13;
+			double NTDCRAMTt=(new Double(checkDouble((buffer.substring(start,start+6)).trim()))).doubleValue();
+			returnStatus=getStatus(NTDCRAMTt);
+			System.out.println("IFX NTDCRAMT Total counts:"+nf.format(NTDCRAMTc)+", Avg RepsTime:"+nf.format(NTDCRAMTt)+"ms. | cnt="+NTDCRAMTc+";;;0; Reps="+NTDCRAMTt+"ms;"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; ");
 		}
 		else{
 	    start=findToken(buffer,"000001",1)+7;
