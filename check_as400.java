@@ -101,7 +101,7 @@ CHANGE LOG:
 1.4.7
 * Added CUB check NTDCRAMT (Only for CUB)
 
-1.5.0
+1.5.1
 * Fixed WRKSYSSTS check problem on V7R3
 --------------------------------------------------------------
 Last Modified  2019/06/11 by Shao-Pin, Cheng  , Taipei, Taiwan
@@ -118,7 +118,7 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.5.0";
+	final static String VERSION="1.5.1";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -946,6 +946,9 @@ public class check_as400{
 		int returnStatus=UNKNOWN;		
 
 		start=findToken(buffer,":",7)+1;
+		if(buffer.indexOf("UTC+")!=-1){
+			start=findToken(buffer,":",8)+1;  //V7R3 or UTC
+		} 
 		int jobs=(new Integer((buffer.substring(start,start+8)).trim())).intValue();
 
 		returnStatus=getStatus(jobs);
