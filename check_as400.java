@@ -103,6 +103,11 @@ CHANGE LOG:
 
 1.5.1
 * Fixed WRKSYSSTS check problem on V7R3
+
+1.5.2
+* Added check for specific messages on log (CKMSG)(2019/08/21 Thanks, j. howell)
+* Added check for temp and perm address use (CKADDR) (2019/08/21Thanks, j. howell)
+* Added some debug output
 --------------------------------------------------------------
 Last Modified  2019/06/11 by Shao-Pin, Cheng  , Taipei, Taiwan
 Mail & PayPal donate: cjt74392@ms10.hinet.net
@@ -112,13 +117,14 @@ Mail & PayPal donate: cjt74392@ms10.hinet.net
 import java.io.*;
 import java.net.*;
 import java.text.*;
+import java.util.Date;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 public class check_as400{
-	final static String VERSION="1.5.1";
+	final static String VERSION="1.5.2";
 
 	public static void printUsage(){
 		System.out.println("Usage: check_as400 -H host -u user -p pass [-v var] [-w warn] [-c critical]\n");
@@ -159,6 +165,14 @@ public class check_as400{
 		System.out.println("      LOGIN             = Check if login completes.");
 		System.out.println("      MSG <user>        = Check for any unanswered messages on msg queue <user>");
 		System.out.println("                          Any unanswered messages causes warning status.");
+		System.out.println("      CKMSG <starttime> <MSGID> [<text string>]");
+		System.out.println("                        = Look for existense of MSGID in the messages since <starttime>");
+		System.out.println("                          starttime can be either hh:mm:ss or epoch time.");
+		System.out.println("                          MSGID is the message identifier.");
+		System.out.println("                          Optionally a text string associated with the MSGID can be specified.");
+		System.out.println("                          Returns CRITICAL if message found.");
+		System.out.println("      CKADDR [TEMP | PERM]");
+    System.out.println("                        = Checks temporary or permanent address use.");
 		System.out.println("      OUTQ <queue>      = Check outq files, writer and status. No writer, or");
 		System.out.println("                          status of 'HLD' causes warning status. This default");
 		System.out.println("                          behavior can be modified with the following options:");
@@ -375,12 +389,12 @@ public class check_as400{
 								}
 							}
 					}
-					else if(args[i].equals("CJM")){
-            ARGS.command=DSPJOBM;
-            ARGS.checkVariable=DJOBM;
-            ARGS.job=args[++i];
-            flag=flag | CMD_FLAG | ARG_FLAG;
-          }
+          else if(args[i].equals("CJM")){
+						ARGS.command=DSPJOBM;
+						ARGS.checkVariable=DJOBM;
+						ARGS.job=args[++i];
+						flag=flag | CMD_FLAG | ARG_FLAG;
+					}
 					else if(args[i].equals("LOGIN")){
 						ARGS.command=CMDLOGIN;
 						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
@@ -470,6 +484,27 @@ public class check_as400{
 							}
 							flag=flag | CMD_FLAG | ARG_FLAG;
 					}
+          /* added jwh - find specific msgid in msgqueue */
+					else if(args[i].equals("CKMSG")){
+			      ARGS.command=DSPLOG;
+						ARGS.checkVariable=CKMSG;
+						ARGS.startTime=parseCKMSGtime(args[++i]);
+						ARGS.msgID=args[++i];
+						flag=flag | CMD_FLAG | ARG_FLAG | WARN_FLAG | CRIT_FLAG;
+						/* optionally can provide search text */
+						ARGS.srchText="";
+            int extra=args.length-1;
+            while (i<extra) {
+					        	ARGS.srchText = ARGS.srchText+args[++i]+" ";
+						}
+					}
+          /* added jwh - check temp or perm address use */
+          else if(args[i].equals("CKADDR")){
+            ARGS.command=WRKSYSSTS;
+            ARGS.checkVariable=CKADDR;
+            ARGS.addrtype=args[++i];
+            flag=flag | CMD_FLAG | ARG_FLAG;
+          }
 				}
 				else{
 					System.out.println("Unknown option ["+args[i]+"]");
@@ -491,6 +526,8 @@ public class check_as400{
 		}
 		catch(Exception e){
 			printUsage();
+	 /* e.printStackTrace();
+      System.out.println(e.toString()); */
 			System.exit(WARN);
 		}
 	}
@@ -549,6 +586,11 @@ public class check_as400{
 				//send("dspmsg msgq("+ARGS.msgUser+") msgtype(*INQ) astlvl(*intermed)\r");
 				send("dspmsg "+ARGS.msgUser+" astlvl(*basic)\r");
 				/*Wait and recieve output screen*/
+				return waitReceive("F3=",NONE);     
+			case DSPLOG:  /* added jwh - look for specific msgid in msgqueue */
+				send("CHGVTMAP DOWN(*CTLD *CTLF *NXTSCR *ESCZ)\r");
+				waitReceive("F3=",NONE);
+				send("dsplog period(('"+ARGS.startTime+"')) msgid("+ARGS.msgID+")\r");
 				return waitReceive("F3=",NONE);
 			case DSPSBSD:
 				send("dspsbsd sbsd("+ARGS.subSystem+")\r");
@@ -695,8 +737,8 @@ public class check_as400{
 				return parseDspSbsD(buffer);
 			case DSPJOB:
 				return parseDspJob(buffer);
-      case DSPJOBM:
-        return parseDspJobM(buffer);
+			case DSPJOBM:
+				return parseDspJobM(buffer);
 			case WRKJOBQ:
 				return parseWrkJobq(buffer);
 			case WRKACTJOB:
@@ -720,21 +762,23 @@ public class check_as400{
 			case WRKPRB:
 				return parseWrkPrb(buffer);
 			case DSPFD:
-      	return parseDspFd(buffer);
-      case DMSWTCHRDY:
-        return parseICSwRdySts(buffer);
-      case DMWRKGRP:
-        return parseICGrpSts(buffer);
-      case DMWRKNODE:
-        return parseICNodeSts(buffer);
+				return parseDspFd(buffer);
+			case DMSWTCHRDY:
+				return parseICSwRdySts(buffer);
+			case DMWRKGRP:
+				return parseICGrpSts(buffer);
+			case DMWRKNODE:
+				return parseICNodeSts(buffer);
+			case DSPLOG:
+				return parseLogSearch(buffer);				
 		}
 		return UNKNOWN;
 	}	
 	
 	public static int getStatus(double val){
 		int returnStatus=UNKNOWN;
-		
-		if(ARGS.checkVariable==CPU || ARGS.checkVariable==DB || ARGS.checkVariable==JOBS || ARGS.checkVariable==AJOBS || ARGS.checkVariable==OUTQ || ARGS.checkVariable==DBFault || ARGS.checkVariable==CMD || ARGS.checkVariable==ASP || ARGS.checkVariable==CPUC || ARGS.checkVariable==CPUT || ARGS.checkVariable==MIMIX || ARGS.checkVariable==JOBQ || ARGS.checkVariable==FDN || ARGS.checkVariable==DJOBM || ARGS.checkVariable==DTAQD){
+	
+		if(ARGS.checkVariable==CPU || ARGS.checkVariable==DB || ARGS.checkVariable==JOBS || ARGS.checkVariable==AJOBS || ARGS.checkVariable==OUTQ || ARGS.checkVariable==DBFault || ARGS.checkVariable==CMD || ARGS.checkVariable==ASP || ARGS.checkVariable==CPUC || ARGS.checkVariable==CPUT || ARGS.checkVariable==MIMIX || ARGS.checkVariable==JOBQ || ARGS.checkVariable==FDN || ARGS.checkVariable==DJOBM || ARGS.checkVariable==DTAQD || ARGS.checkVariable==CKADDR){
 			if(val<ARGS.tHoldWarn){
 				System.out.print("OK - ");
 				returnStatus=OK;
@@ -1049,6 +1093,47 @@ public class check_as400{
 		return returnStatus;
 	}	
 	
+/* parse output from dsplog - jwh */
+	public static int parseLogSearch(String buffer){
+    int returnStatus=UNKNOWN;
+		/* ok return is "(No messages available)" or "No entries exist" */
+		/* critical return is anything else */
+		if (buffer.indexOf(LANG.NO_MESSAGES_AVAILABLE) != -1 || buffer.indexOf(LANG.NO_ENTRIES_EXIST) != -1) {
+			System.out.println("OK - Message "+ARGS.msgID+"not present");
+			returnStatus = OK;
+		} 
+		else {
+			if (ARGS.srchText != "") {
+				if (buffer.indexOf(ARGS.srchText) == -1) {
+				  System.out.println("OK - Message "+ARGS.msgID+" "+ARGS.srchText+"not present");
+				  returnStatus = OK;
+				}
+			  else {
+				  		returnStatus = CRITICAL;
+			        System.out.println("CRITICAL - Message "+ARGS.msgID+" "+ARGS.srchText+"is present");
+			  }
+		  }
+		}
+		return returnStatus;
+	}
+
+/* parse time passed in for CKMSG - convert from epoch time to string if necessary - jwh */
+	public static String parseCKMSGtime(String timevalue) {
+		String parsedTime;
+		long epochtime;
+		SimpleDateFormat newDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
+		if (timevalue.indexOf(":") != -1) {
+			return timevalue;
+		} else {
+			epochtime = Long.parseLong(timevalue);
+			Date date = new Date(epochtime*1000L);
+			parsedTime = newDate.format(date);
+			parsedTime = parsedTime.substring(12,19);
+			return parsedTime;
+		}
+	}
+
+
 	public static int findToken(String buffer, String token, int instance){
 		int index=0,start=-1,newStart=0;
 		while(index<instance){
@@ -1072,7 +1157,7 @@ public class check_as400{
 		int returnStatus=UNKNOWN;
 		NumberFormat nf=NumberFormat.getInstance();
 		nf.setMaximumFractionDigits(2);
-		
+
 		if(ARGS.checkVariable==CPU){
 			start=findToken(buffer,":",3)+1;
 			if(buffer.indexOf("UTC+")!=-1){
@@ -1149,6 +1234,24 @@ public class check_as400{
 			
 			System.out.println(jobs+" jobs in system | jobs="+jobs+";"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; ");
 		}
+    else if(ARGS.checkVariable==CKADDR) {
+      if(ARGS.addrtype.equals("PERM")){
+        start=findToken(buffer,":",11)+1;
+      }
+      else if(ARGS.addrtype.equals("TEMP")){
+        start=findToken(buffer,":",13)+1;
+      }
+      else{
+        if(ARGS.DEBUG) {
+          System.out.println("Unknown address type provided, need PERM or TEMP");
+        }
+        returnStatus=UNKNOWN;
+      }
+      double addrs=(new Double(checkDouble((buffer.substring(start,start+11)).trim()))).doubleValue();
+      returnStatus=getStatus(addrs);
+      System.out.println(ARGS.addrtype+" addrs "+addrs+" % used | addrs="+addrs+"%;"+ARGS.tHoldWarn+";"+ARGS.tHoldCritical+";0; ");
+    }
+		
 		else if(ARGS.checkVariable==DBFault){
 			if(buffer.indexOf("UTC+")!=-1){
 			  start=findToken(buffer,"+",6)+4; //V7R3 or UTC time
@@ -1726,7 +1829,14 @@ public class check_as400{
             System.out.println("CRITICAL - job("+ARGS.job+") NOT IN SYSTEM");
             logout(CRITICAL);
           }
-        }              
+        }
+        else if(procedure==CKMSG) {
+			      if(buffer.indexOf(ARGS.msgID) != -1) {
+				    logout(CRITICAL);
+			      } else {
+               logout(OK);
+            }
+		    }              
 				//check for command not allowed errors
 				if(procedure!=LOGIN){
 					if(buffer.indexOf(LANG.LIBRARY_NOT_ALLOWED)!=-1){
@@ -1862,9 +1972,9 @@ public class check_as400{
 	private static check_as400_lang LANG;
 	
 	//These constants are for the Commands
-	final static int WRKSYSSTS=0,WRKOUTQ=1,DSPMSG=2,DSPSBSD=3,DSPJOB=4,WRKACTJOB=5,CMDLOGIN=6,CMDCLP=7,WRKDSKSTS=8,WRKASPBRM=9,WRKSYSACT=10,DSPDGSTS=11,WRKJOBQ=12,CHKJOBSTS=13,DMWRKNODE=14,DMWRKGRP=15,DMSWTCHRDY=16,TOPCPUJOB=17,WRKPRB=18,DSPFD=19,DSPJOBM=20,DSPDTAQD=21;
+	final static int WRKSYSSTS=0,WRKOUTQ=1,DSPMSG=2,DSPSBSD=3,DSPJOB=4,WRKACTJOB=5,CMDLOGIN=6,CMDCLP=7,WRKDSKSTS=8,WRKASPBRM=9,WRKSYSACT=10,DSPDGSTS=11,WRKJOBQ=12,CHKJOBSTS=13,DMWRKNODE=14,DMWRKGRP=15,DMSWTCHRDY=16,TOPCPUJOB=17,WRKPRB=18,DSPFD=19,DSPJOBM=20,DSPDTAQD=21,DSPLOG=22;
 	//These constants are for the variables
-	final static int CPU=0,DB=1,US=2,JOBS=3,MSG=4,OUTQ=5,SBS=6,DJOB=7,AJOBS=8,DBFault=9,CMD=10,DISK=11,ASP=12,CPUC=13,MIMIX=14,JOBQ=15,JOBSTS=16,ICNODE=17,ICGROUP=18,ICSWRDY=19,CPUT=20,PRB=21,FDN=22,DJOBM=23,DTAQD=24;
+	final static int CPU=0,DB=1,US=2,JOBS=3,MSG=4,OUTQ=5,SBS=6,DJOB=7,AJOBS=8,DBFault=9,CMD=10,DISK=11,ASP=12,CPUC=13,MIMIX=14,JOBQ=15,JOBSTS=16,ICNODE=17,ICGROUP=18,ICSWRDY=19,CPUT=20,PRB=21,FDN=22,DJOBM=23,DTAQD=24,CKMSG=25,CKADDR=26;
 	//These constants are for the wait recieve, controlling
 	//any other logic that it should turn on. For example checking
 	//for invalid login.

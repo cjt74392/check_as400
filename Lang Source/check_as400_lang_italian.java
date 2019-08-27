@@ -24,7 +24,7 @@ public class check_as400_lang{
 	//Run dspmsg and it will display "No messages available" if there are no 
 	//messages
 	public String NO_MESSAGES_AVAILABLE="Nessun messaggio disponibile";
-
+  public String NO_ENTRIES_EXIST="Nessun esistono voci nella versione corrente del registro";  //CPF2447 No entries exist in current version of log ????
 	//The "password has expired"/"password expires" messages are the messages
 	//you get when you login with an account which has an expired/will expire
 	//password.
