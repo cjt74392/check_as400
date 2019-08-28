@@ -1,3 +1,17 @@
-USER=`cat /usr/local/nagios/etc/objects/check_as400/.as400 |grep -e USER | cut -d = -f 2`
-PASS=`cat /usr/local/nagios/etc/objects/check_as400/.as400 |grep -e PASS | cut -d = -f 2`
-/usr/java14/jre/bin/java -cp /usr/local/nagios/etc/objects/check_as400 check_as400 -u $USER -p $PASS $*
+#!/bin/sh
+if [ "x$CHECK_AS400_CP" == "x" ]; then
+    CHECK_AS400_CP=$(dirname $(readlink -f $0))
+fi
+
+if [ "x$CHECK_AS400_CREDENTIAL_FILE" == "x" ]; then
+    CHECK_AS400_CREDENTIAL_FILE=".as400"
+fi
+
+CHECK_AS400_CREDENTIAL_PARAMS=""
+if [ -e $CHECK_AS400_CREDENTIAL_FILE ]; then
+    USR=`grep USER $CHECK_AS400_CREDENTIAL_FILE | cut -d = -f 2`
+    PASS=`grep PASS $CHECK_AS400_CREDENTIAL_FILE | cut -d = -f 2`
+    CHECK_AS400_CREDENTIAL_PARAMS="-u $USR -p $PASS"
+fi
+
+java -cp $CHECK_AS400_CP check_as400 $CHECK_AS400_CREDENTIAL_PARAMS $*
